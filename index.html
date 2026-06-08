@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重生模擬器 v2</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            text-align: center; 
+            padding: 50px; 
+            background-color: #1a1a1a; 
+            color: #f0f0f0; 
+        }
+        h1 { color: #ffd700; }
+        .slot { 
+            font-size: 2.5em; 
+            margin: 20px auto; 
+            height: 80px; 
+            width: 80%;
+            max-width: 500px;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border: 3px solid #ffd700; 
+            background: #2a2a2a;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+        }
+        button { 
+            padding: 12px 25px; 
+            font-size: 1.2em; 
+            cursor: pointer; 
+            background: #ffd700; 
+            border: none; 
+            border-radius: 5px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        button:hover:not(:disabled) { background: #ffcc00; transform: scale(1.05); }
+        button:disabled { background: #555; cursor: not-allowed; }
+        #popup { 
+            display: none; position: fixed; top: 15%; left: 10%; right: 10%; 
+            padding: 30px; background: #333; border: 3px solid #ffd700; 
+            color: white; border-radius: 15px; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 30px 20px; }
+            .slot { font-size: 1.8em; height: 70px; }
+            button { padding: 14px 22px; font-size: 1.1em; }
+            #popup { left: 5%; right: 5%; padding: 24px; top: 12%; }
+            h1 { font-size: 1.5em; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 20px 12px; }
+            .slot { font-size: 1.3em; height: 60px; margin: 14px auto; width: 90%; }
+            button { padding: 14px 18px; font-size: 1em; width: 100%; max-width: 300px; }
+            #popup { left: 3%; right: 3%; padding: 18px; top: 10%; }
+            #popup button { width: 100%; max-width: 100%; }
+            h1 { font-size: 1.2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>上一世，你經歷了：</h1>
+    <div id="crisisSlot" class="slot">???</div>
+    <button onclick="spin('crisis')">拉動拉桿 (災害)</button>
+
+    <div id="step2" style="display:none">
+        <h1>可是，你重生了。這一世，你獲得了異能：</h1>
+        <div id="abilitySlot" class="slot">???</div>
+        <button id="abilityBtn" onclick="spin('ability')">拉動拉桿 (異能)</button>
+    </div>
+
+    <div id="step3" style="display:none">
+        <h1>在你獲得異能的同時，一個虛影出現，你認得他正是上一世害死你的人：</h1>
+        <div id="enemySlot" class="slot">???</div>
+        <button id="enemyBtn" onclick="spin('enemy')">拉動拉桿</button>
+    </div>
+
+    <div id="popup">
+        <p id="resultText" style="line-height: 1.8; text-align: left;"></p>
+        <button id="popupBtn" onclick="handlePopup()">確認</button>
+    </div>
+
+<script src="sim-rebirth-data.js"></script>
+
+<script>
+    const rarityConfig = [
+        { rank: "D", pct: 0.35, msg: "你只能一輩子仰人鼻息，卑微而小心地活著。" },
+        { rank: "C", pct: 0.25, msg: "生活在社會中層，雖然平庸但至少能溫飽。" },
+        { rank: "B", pct: 0.15, msg: "你在小範圍內小有名氣，過著還不錯的生活。" },
+        { rank: "A", pct: 0.12, msg: "你已經成為一方強者，足以在亂世中佔有一席之地。" },
+        { rank: "S", pct: 0.08, msg: "你的名字將被寫入歷史，足以改變人類的命運。" },
+        { rank: "SR", pct: 0.04, msg: "你是傳說中的存在，強大到讓神明都感到威脅。" },
+        { rank: "SSR", pct: 0.01, msg: "你是這個世界的造物主，沒有什麼能阻擋你。" }
+    ];
+
+    let selectedCrisis = "";
+    let selectedAbility = null;
+    let selectedRarity = null;
+    let enemyAbility = null;
+    let enemyRarity = null;
+    let popupMode = "";
+
+    function spin(type) {
+        let el = document.getElementById(type + 'Slot');
+
+        if (type === 'crisis') {
+            selectedCrisis = crises[Math.floor(Math.random() * crises.length)];
+        } else if (type === 'ability') {
+            const rand = Math.random();
+            let cumulative = 0;
+            let chosenRarity = rarityConfig[0];
+            for (let r of rarityConfig) {
+                cumulative += r.pct;
+                if (rand <= cumulative) { chosenRarity = r; break; }
+            }
+            const list = abilities[chosenRarity.rank];
+            selectedAbility = list[Math.floor(Math.random() * list.length)];
+            selectedRarity = chosenRarity;
+        } else if (type === 'enemy') {
+            const all = Object.values(abilities).flat();
+            const obj = all[Math.floor(Math.random() * all.length)];
+            let key = Object.keys(abilities).find(k => abilities[k].some(a => a.name === obj.name));
+            enemyAbility = obj;
+            enemyRarity = rarityConfig.find(r => r.rank === key);
+        }
+
+        let count = 0;
+        let interval = setInterval(() => {
+            if (type === 'crisis') {
+                el.innerText = crises[Math.floor(Math.random() * crises.length)];
+            } else {
+                const all = Object.values(abilities).flat();
+                el.innerText = all[Math.floor(Math.random() * all.length)].name;
+            }
+            count++;
+            if(count > 10) {
+                clearInterval(interval);
+                if (type === 'crisis') {
+                    el.innerText = selectedCrisis;
+                    showCrisisConfirm();
+                } else if (type === 'enemy') {
+                    el.innerText = enemyAbility.name;
+                    finalizeEnemy();
+                } else {
+                    el.innerText = selectedAbility.name;
+                    finalizeAbility();
+                }
+            }
+        }, 100);
+    }
+
+    function getRarityValue(rank) {
+        const weights = { "D": 1, "C": 2, "B": 3, "A": 4, "S": 5, "SR": 6, "SSR": 7 };
+        return weights[rank] || 0;
+    }
+
+    function showCrisisConfirm() {
+        popupMode = "confirm-crisis";
+        document.getElementById("resultText").innerHTML =
+            `上一世，全球異變，你經歷了：<strong>${selectedCrisis}</strong>。你在亂世中不幸身亡。<br><br>點擊確認繼續下一步。`;
+        document.getElementById("popupBtn").innerText = "確認";
+        document.getElementById("popup").style.display = "block";
+    }
+
+    function handlePopup() {
+        if (popupMode === "confirm-crisis") {
+            document.getElementById("popup").style.display = "none";
+            document.getElementById("step2").style.display = "block";
+        } else if (popupMode === "show-ability") {
+            document.getElementById("popup").style.display = "none";
+            document.getElementById("step3").style.display = "block";
+        } else if (popupMode === "show-enemy") {
+            document.getElementById("popup").style.display = "none";
+            startBattle(selectedAbility, selectedRarity);
+        } else if (popupMode === "final") {
+            location.reload();
+        }
+    }
+
+    function finalizeAbility() {
+        popupMode = "show-ability";
+        document.getElementById("resultText").innerHTML =
+            `你獲得了 <strong>${selectedRarity.rank}級</strong> 異能：<strong>${selectedAbility.name}</strong><br><br>` +
+            `現在你${selectedAbility.desc}`;
+        document.getElementById("popupBtn").innerText = "確認";
+        document.getElementById("popup").style.display = "block";
+    }
+
+    function finalizeEnemy() {
+        popupMode = "show-enemy";
+        document.getElementById("resultText").innerHTML =
+            `虛影擁有 <strong>${enemyRarity.rank}級</strong> 異能：<strong>${enemyAbility.name}</strong><br><br>` +
+            `他的能力是${enemyAbility.desc}`;
+        document.getElementById("popupBtn").innerText = "確認";
+        document.getElementById("popup").style.display = "block";
+    }
+
+    // 修正後邏輯：確保戰鬥訊息寫入並強制顯示 popup
+    function startBattle(myAbility, myRarity) {
+        const getVal = (r) => rarityConfig.findIndex(item => item.rank === r.rank);
+        let myIndex = getVal(myRarity);
+        let enemyIndex = getVal(enemyRarity);
+        let diff = Math.abs(myIndex - enemyIndex);
+        
+        let battleDesc;
+        if (diff <= 1) {
+            if (myIndex >= 3 || enemyIndex >= 3) {
+                battleDesc = "經過一場驚心動魄的戰鬥後，";
+            } else {
+                battleDesc = "兩個沒有什麼了不起技能的凡胎，經過一輪平凡無奇的戰鬥後，";
+            }
+        } else {
+            battleDesc = "兩項技能天差地別，在經過一場跟本不算是戰鬥的單方面暴走後，";
+        }
+        
+        let isVictory = myIndex >= enemyIndex;
+        const resultElement = document.getElementById('resultText');
+        
+        let header = `擁有《${myAbility.name}》的你與擁有《${enemyAbility.name}》的虛影戰鬥。<br><br>`;
+        header += battleDesc + "<br><br>";
+        
+        if (!isVictory) {
+            resultElement.innerHTML = header +
+                "你落敗了，你失去了剛剛獲得的異能，被放逐至變異後的世界自生自滅。";
+        } else {
+            resultElement.innerHTML = header +
+                "你勝出了！<br><br>" +
+                `上一世經歷：${selectedCrisis}<br>` +
+                `今世異能：${myAbility.name} (${myRarity.rank}級)<br>` +
+                `結局：${myRarity.msg}`;
+        }
+        
+        popupMode = "final";
+        document.getElementById("popupBtn").innerText = "重新開始";
+        document.getElementById('popup').style.display = 'block';
+    }
+</script>
+</body>
+</html>
