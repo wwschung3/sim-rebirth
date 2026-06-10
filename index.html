@@ -1,15 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-07H212DEY2"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-07H212DEY2');
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>重生模擬器 v2</title>
@@ -79,12 +70,17 @@
     <button onclick="spin('crisis')">拉動拉桿 (災害)</button>
 
     <div id="step2" style="display:none">
+        <h1>你因為 <span id="deathReasonA">???</span><span id="deathReasonB">???</span> 導致 <span id="deathCauseSpan">???</span> 而亡。</h1>
+        <button onclick="generateDeath()">生成死因</button>
+    </div>
+
+    <div id="step3" style="display:none">
         <h1>可是，你重生了。這一世，你獲得了異能：</h1>
         <div id="abilitySlot" class="slot">???</div>
         <button id="abilityBtn" onclick="spin('ability')">拉動拉桿 (異能)</button>
     </div>
 
-    <div id="step3" style="display:none">
+    <div id="step4" style="display:none">
         <h1>在你獲得異能的同時，一個虛影出現，你認得他正是上一世害死你的人：</h1>
         <div id="enemySlot" class="slot">???</div>
         <button id="enemyBtn" onclick="spin('enemy')">拉動拉桿</button>
@@ -114,6 +110,9 @@
     let enemyAbility = null;
     let enemyRarity = null;
     let popupMode = "";
+    let selectedReasonA = "";
+    let selectedReasonB = "";
+    let selectedDeathCause = "";
 
     function spin(type) {
         let el = document.getElementById(type + 'Slot');
@@ -177,13 +176,32 @@
         document.getElementById("popup").style.display = "block";
     }
 
+    function generateDeath() {
+        selectedReasonA = deathReasonsA[Math.floor(Math.random() * deathReasonsA.length)];
+        selectedReasonB = deathReasonsB[Math.floor(Math.random() * deathReasonsB.length)];
+        selectedDeathCause = deathCauses[Math.floor(Math.random() * deathCauses.length)];
+
+        document.getElementById("deathReasonA").innerText = selectedReasonA;
+        document.getElementById("deathReasonB").innerText = selectedReasonB;
+        document.getElementById("deathCauseSpan").innerText = selectedDeathCause;
+
+        popupMode = "show-death";
+        document.getElementById("resultText").innerHTML =
+            `你因為 ${selectedReasonA}${selectedReasonB} 導致 ${selectedDeathCause} 而亡。<br><br>點擊確認繼續下一步。`;
+        document.getElementById("popupBtn").innerText = "確認";
+        document.getElementById("popup").style.display = "block";
+    }
+
     function handlePopup() {
         if (popupMode === "confirm-crisis") {
             document.getElementById("popup").style.display = "none";
             document.getElementById("step2").style.display = "block";
-        } else if (popupMode === "show-ability") {
+        } else if (popupMode === "show-death") {
             document.getElementById("popup").style.display = "none";
             document.getElementById("step3").style.display = "block";
+        } else if (popupMode === "show-ability") {
+            document.getElementById("popup").style.display = "none";
+            document.getElementById("step4").style.display = "block";
         } else if (popupMode === "show-enemy") {
             document.getElementById("popup").style.display = "none";
             startBattle(selectedAbility, selectedRarity);
